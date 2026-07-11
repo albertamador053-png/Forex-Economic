@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bias Terminal — Oro &amp; USD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0d10;
+    --surface:#16181d;
+    --surface-2:#1e2127;
+    --line:#2a2d34;
+    --gold:#c9a227;
+    --gold-dim:#8a7220;
+    --buy:#4e9f5b;
+    --buy-dim:#274d2d;
+    --sell:#c0473c;
+    --sell-dim:#4d2521;
+    --neutral:#8b8d93;
+    --text:#e8e6df;
+    --text-dim:#9a9ca3;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  ::selection{ background:var(--gold); color:#0c0d10; }
+
+  /* ---------- HEADER ---------- */
+  header{
+    border-bottom:1px solid var(--line);
+    padding:18px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    position:sticky;
+    top:0;
+    background:rgba(12,13,16,0.92);
+    backdrop-filter:blur(8px);
+    z-index:50;
+  }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand .mark{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:0.5px;
+  }
+  .brand .mark span{ color:var(--gold); }
+  .brand .sub{ font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; }
+
+  .status-cluster{ display:flex; align-items:center; gap:18px; font-family:var(--font-mono); font-size:12px; color:var(--text-dim); flex-wrap:wrap; }
+  .status-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .status-dot.live{ background:var(--buy); box-shadow:0 0 8px var(--buy); }
+  .status-dot.off{ background:var(--sell); box-shadow:0 0 8px var(--sell); }
+  .status-dot.wait{ background:var(--gold); box-shadow:0 0 8px var(--gold); }
+
+  /* ---------- BIAS NEEDLE (signature element) ---------- */
+  .bias-panel{
+    margin:24px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:22px 26px;
+  }
+  .bias-panel h2{
+    font-family:var(--font-display);
+    font-size:13px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:18px;
+  }
+  .gauge-row{ display:flex; gap:40px; flex-wrap:wrap; }
+  .gauge{ flex:1; min-width:260px; }
+  .gauge-label{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .gauge-label .asset{ font-family:var(--font-display); font-weight:600; font-size:15px; }
+  .gauge-label .verdict{ font-family:var(--font-mono); font-weight:700; font-size:13px; letter-spacing:0.5px; padding:3px 10px; border-radius:4px; }
+  .verdict.buy{ background:var(--buy-dim); color:var(--buy); }
+  .verdict.sell{ background:var(--sell-dim); color:var(--sell); }
+  .verdict.neutral{ background:var(--surface-2); color:var(--neutral); }
+
+  .track{ position:relative; height:8px; border-radius:4px; background:linear-gradient(90deg, var(--sell) 0%, var(--surface-2) 50%, var(--buy) 100%); margin:14px 0 6px; }
+  .needle{ position:absolute; top:-5px; width:2px; height:18px; background:var(--text); left:50%; transition:left 0.6s ease; }
+  .needle::after{ content:''; position:absolute; top:-4px; left:-4px; width:10px; height:10px; border-radius:50%; background:var(--gold); }
+  .scale-labels{ display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; }
+
+  /* ---------- CONFIG ---------- */
+  .config{
+    margin:0 24px 24px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 26px;
+  }
+  .config h2{ font-family:var(--font-display); font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin-bottom:16px; }
+  .config-grid{ display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:14px; align-items:end; }
+  @media (max-width:800px){ .config-grid{ grid-template-columns:1fr; } }
+  .field label{ display:block; font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+  .field input, .field select{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:10px 12px; border-radius:6px; font-family:var(--font-mono); font-size:13px;
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--gold); }
+  .btn{
+    background:var(--gold); color:#141005; border:none; padding:10px 18px; border-radius:6px;
+    font-family:var(--font-display); font-weight:600; font-size:13px; cursor:pointer; letter-spacing:0.3px;
+    transition:background 0.2s;
+  }
+  .btn:hover{ background:#ddb52f; }
+  .btn:disabled{ background:var(--surface-2); color:var(--text-dim); cursor:not-allowed; }
+  .config-note{ margin-top:14px; font-size:12px; color:var(--text-dim); line-height:1.6; }
+  .config-note a{ color:var(--gold); text-decoration:none; }
+  .config-note a:hover{ text-decoration:underline; }
+
+  /* ---------- FEED ---------- */
+  .feed{ margin:0 24px; }
+  .feed-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+  .feed-header h2{ font-family:var(--font-display); font-size:15px; }
+  .feed-count{ font-family:var(--font-mono); font-size:12px; color:var(--text-dim); }
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:18px 20px; margin-bottom:12px;
+  }
+  .card-top{ display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+  .card-meta{ font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:6px; display:flex; gap:10px; flex-wrap:wrap; }
+  .badge{ padding:2px 8px; border-radius:4px; font-weight:700; letter-spacing:0.3px; }
+  .badge.impact-alto{ background:var(--sell-dim); color:var(--sell); }
+  .badge.impact-medio{ background:#4d3f1f; color:var(--gold); }
+  .badge.impact-bajo{ background:var(--surface-2); color:var(--neutral); }
+  .card h3{ font-family:var(--font-body); font-weight:600; font-size:15px; line-height:1.4; margin-bottom:8px; }
+  .card a{ color:var(--text); text-decoration:none; }
+  .card a:hover{ color:var(--gold); }
+  .card p.summary{ font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:12px; }
+
+  .reco{ display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:12px; }
+  .reco-pill{ display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:12px; padding:6px 12px; border-radius:6px; background:var(--surface-2); }
+  .reco-pill b{ font-family:var(--font-display); }
+  .reco-pill.buy b{ color:var(--buy); }
+  .reco-pill.sell b{ color:var(--sell); }
+  .reco-pill.neutral b{ color:var(--neutral); }
+
+  .empty, .error-box{
+    text-align:center; padding:50px 20px; color:var(--text-dim); font-family:var(--font-mono); font-size:13px;
+  }
+  .error-box{ background:var(--sell-dim); color:#f0b3ac; border-radius:10px; }
+
+  .agenda-row{ display:flex; align-items:center; gap:14px; padding:12px 14px; border-bottom:1px solid var(--line); font-size:13px; flex-wrap:wrap; }
+  .agenda-row:last-child{ border-bottom:none; }
+  .agenda-time{ font-family:var(--font-mono); font-size:12px; color:var(--gold); min-width:70px; }
+  .agenda-event{ flex:1; min-width:180px; }
+  .agenda-country{ font-family:var(--font-mono); font-size:11px; color:var(--text-dim); }
+  .agenda-vals{ font-family:var(--font-mono); font-size:11px; color:var(--text-dim); display:flex; gap:10px; }
+  .agenda-vals span b{ color:var(--text); }
+
+  /* ---------- REFERENCE ---------- */
+  .reference{ margin:32px 24px 0; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px 26px; }
+  .reference h2{ font-family:var(--font-display); font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin-bottom:14px; }
+  .ref-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
+  .ref-item{ font-size:12px; color:var(--text-dim); line-height:1.6; padding:12px; background:var(--surface-2); border-radius:8px; }
+  .ref-item b{ display:block; color:var(--text); font-family:var(--font-mono); font-size:12px; margin-bottom:4px; }
+
+  footer{ text-align:center; padding:30px 20px 10px; font-family:var(--font-mono); font-size:11px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">TROIDE<span>·</span>BIAS TERMINAL</div>
+    <div class="sub">Oro / USD / Noticias</div>
+  </div>
+  <div class="status-cluster">
+    <span id="statusText"><span class="status-dot wait" id="statusDot"></span>Esperando API key</span>
+    <span id="lastUpdate">Última actualización: —</span>
+    <span id="nextUpdate">Próxima en: —</span>
+  </div>
+</header>
+
+<section class="bias-panel">
+  <h2>Sesgo agregado del mercado (según últimas noticias analizadas)</h2>
+  <div class="gauge-row">
+    <div class="gauge">
+      <div class="gauge-label">
+        <span class="asset">ORO — XAUUSD</span>
+        <span class="verdict neutral" id="goldVerdict">SIN DATOS</span>
+      </div>
+      <div class="track"><div class="needle" id="goldNeedle" style="left:50%"></div></div>
+      <div class="scale-labels"><span>Venta</span><span>Neutro</span><span>Compra</span></div>
+    </div>
+    <div class="gauge">
+      <div class="gauge-label">
+        <span class="asset">PARES USD — EURUSD / GBPUSD / AUDUSD</span>
+        <span class="verdict neutral" id="usdVerdict">SIN DATOS</span>
+      </div>
+      <div class="track"><div class="needle" id="usdNeedle" style="left:50%"></div></div>
+      <div class="scale-labels"><span>Bajan</span><span>Neutro</span><span>Suben</span></div>
+    </div>
+  </div>
+  <p style="margin-top:14px; font-size:11px; color:var(--text-dim); font-family:var(--font-mono);">
+    Nota: esto es para pares donde el USD es la segunda moneda (EURUSD, GBPUSD, AUDUSD, NZDUSD). Para USDJPY o USDCHF es al revés: si el dólar se fortalece, esos pares suben.
+  </p>
+</section>
+
+<section class="bias-panel" id="agendaSection">
+  <h2>Agenda económica de hoy</h2>
+  <div id="agendaContainer">
+    <div class="empty" style="padding:20px;">Se carga automáticamente al iniciar el monitor (requiere que tu plan de Finnhub incluya calendario económico).</div>
+  </div>
+</section>
+
+<section class="config">
+  <h2>Configuración</h2>
+  <div class="config-grid">
+    <div class="field">
+      <label for="apiKey">API Key de Finnhub (gratis)</label>
+      <input type="password" id="apiKey" placeholder="Pega aquí tu key de finnhub.io">
+    </div>
+    <div class="field">
+      <label for="category">Categoría</label>
+      <select id="category">
+        <option value="forex">Forex</option>
+        <option value="general">General</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="interval">Actualizar cada</label>
+      <select id="interval">
+        <option value="1">1 min</option>
+        <option value="5" selected>5 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+      </select>
+    </div>
+    <button class="btn" id="startBtn">Iniciar monitor</button>
+  </div>
+  <p class="config-note">
+    Consigue tu API key gratis en <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a> (sin tarjeta de crédito, plan free = 60 llamadas/min).
+    La key no se guarda en ningún servidor — vive solo en esta pestaña mientras la tengas abierta.
+    Si vas a subir esto a GitHub y quieres que arranque solo (sin pegar la key cada vez), edita la línea
+    <code style="color:var(--gold)">const HARDCODED_API_KEY = "";</code> en el código y pon tu key ahí antes de publicar el repo.
+  </p>
+</section>
+
+<section class="feed">
+  <div class="feed-header">
+    <h2>Noticias relevantes para Oro / USD</h2>
+    <span class="feed-count" id="feedCount"></span>
+  </div>
+  <div id="feedContainer">
+    <div class="empty">Pega tu API key y dale a "Iniciar monitor" para comenzar.</div>
+  </div>
+</section>
+
+<section class="reference">
+  <h2>Referencia — eventos que mueven el mercado (no son fechas en vivo, es guía general)</h2>
+  <div class="ref-grid">
+    <div class="ref-item"><b>NFP (Nóminas no agrícolas)</b>Primer viernes del mes. Alta volatilidad en USD y Oro.</div>
+    <div class="ref-item"><b>CPI (Inflación)</b>A mitad de mes aprox. Clave para expectativas de tasas de la Fed.</div>
+    <div class="ref-item"><b>FOMC (Decisión de tasas)</b>8 reuniones al año. El evento de mayor impacto en USD/Oro.</div>
+    <div class="ref-item"><b>PMI (Manufactura/Servicios)</b>Principios de mes. Termómetro de actividad económica.</div>
+    <div class="ref-item"><b>Discursos de Powell / Fed</b>Variables. Tono hawkish (duro) fortalece USD y presiona Oro; dovish (suave) hace lo contrario.</div>
+    <div class="ref-item"><b>Geopolítica (Irán, Medio Oriente, guerra)</b>Aumenta demanda de Oro como refugio y presiona precios de petróleo.</div>
+  </div>
+</section>
+
+<footer>Analizador construido para uso personal · Datos vía Finnhub.io · No es asesoría financiera</footer>
+
+<script>
+// ============================================================
+// Si vas a hostear esto en GitHub Pages y quieres que la key
+// ya venga puesta (para no pegarla cada vez que abres la app),
+// escríbela aquí antes de subir el repo. Si la dejas vacía,
+// la app te la pedirá en el campo de arriba.
+// ============================================================
+const HARDCODED_API_KEY = "";
+
+// ---------- Palabras clave por relevancia / impacto ----------
+const HIGH_IMPACT = ["nonfarm","non-farm","nfp","payroll","cpi","inflation","fomc","fed rate","interest rate decision","rate decision","pmi","jobs report","unemployment rate","powell","fed chair","rate cut","rate hike","iran","israel","war","attack","strike","missile","sanctions"];
+const MED_IMPACT = ["federal reserve","fed official","fed speaker","fomc member","speaks","waller","williams","bostic","barkin","logan","goolsbee","kashkari","harker","daly","cook","jefferson","oil","opec","crude","trump","tariff","yield","treasury","gdp","retail sales","consumer confidence","geopolitical"];
+const RELEVANT_KEYWORDS = [...HIGH_IMPACT, ...MED_IMPACT, "gold","usd","dollar","xau","forex","currency","fx"];
+
+const HAWKISH_USD_UP = ["rate hike","hawkish","raises rates","inflation rises","inflation surges","strong jobs","strong payroll","beats expectations","robust growth","tightening"];
+const DOVISH_USD_DOWN = ["rate cut","dovish","cuts rates","weak jobs","misses expectations","slowdown","recession fears","easing","pauses rate"];
+const SAFE_HAVEN_GOLD_UP = ["war","attack","strike","missile","sanctions","iran","israel","geopolitical tension","conflict escalates","military","invasion"];
+const RISK_ON_GOLD_DOWN = ["ceasefire","peace deal","tensions ease","de-escalate","truce","risk appetite"];
+
+let refreshTimer = null;
+let countdownTimer = null;
+let secondsLeft = 0;
+
+const els = {
+  apiKey: document.getElementById('apiKey'),
+  category: document.getElementById('category'),
+  interval: document.getElementById('interval'),
+  startBtn: document.getElementById('startBtn'),
+  statusText: document.getElementById('statusText'),
+  statusDot: document.getElementById('statusDot'),
+  lastUpdate: document.getElementById('lastUpdate'),
+  nextUpdate: document.getElementById('nextUpdate'),
+  feedContainer: document.getElementById('feedContainer'),
+  feedCount: document.getElementById('feedCount'),
+  goldNeedle: document.getElementById('goldNeedle'),
+  usdNeedle: document.getElementById('usdNeedle'),
+  goldVerdict: document.getElementById('goldVerdict'),
+  usdVerdict: document.getElementById('usdVerdict'),
+};
+
+if (HARDCODED_API_KEY) els.apiKey.value = HARDCODED_API_KEY;
+
+els.startBtn.addEventListener('click', () => {
+  const key = els.apiKey.value.trim();
+  if (!key){
+    setStatus('off', 'Falta la API key');
+    return;
+  }
+  clearInterval(refreshTimer);
+  clearInterval(countdownTimer);
+  fetchNews();
+  fetchAgenda();
+  const minutes = parseInt(els.interval.value, 10);
+  secondsLeft = minutes * 60;
+  refreshTimer = setInterval(() => { fetchNews(); fetchAgenda(); }, minutes * 60 * 1000);
+  countdownTimer = setInterval(tickCountdown, 1000);
+});
+
+function tickCountdown(){
+  secondsLeft--;
+  if (secondsLeft < 0){
+    const minutes = parseInt(els.interval.value, 10);
+    secondsLeft = minutes * 60;
+  }
+  const m = Math.floor(secondsLeft / 60);
+  const s = secondsLeft % 60;
+  els.nextUpdate.textContent = `Próxima en: ${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function setStatus(type, text){
+  els.statusDot.className = `status-dot ${type}`;
+  els.statusText.innerHTML = `<span class="status-dot ${type}" id="statusDot"></span>${text}`;
+}
+
+async function fetchNews(){
+  const key = els.apiKey.value.trim();
+  const category = els.category.value;
+  if (!key) return;
+
+  setStatus('wait', 'Actualizando...');
+
+  try{
+    const res = await fetch(`https://finnhub.io/api/v1/news?category=${category}&token=${key}`);
+    if (!res.ok){
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (!Array.isArray(data)){
+      throw new Error('Respuesta inesperada de la API');
+    }
+    const relevant = data
+      .filter(item => isRelevant(item))
+      .slice(0, 25);
+
+    renderFeed(relevant);
+    renderGauges(relevant);
+
+    setStatus('live', 'Conectado');
+    els.lastUpdate.textContent = `Última actualización: ${new Date().toLocaleTimeString('es-DO')}`;
+    secondsLeft = parseInt(els.interval.value, 10) * 60;
+
+  } catch(err){
+    setStatus('off', 'Error de conexión');
+    els.feedContainer.innerHTML = `<div class="error-box">
+      No se pudo conectar con Finnhub. Revisa que tu API key sea correcta y que no hayas superado el límite gratuito (60 llamadas/min).<br>
+      Detalle técnico: ${escapeHtml(err.message)}
+    </div>`;
+  }
+}
+
+async function fetchAgenda(){
+  const key = els.apiKey.value.trim();
+  if (!key) return;
+  const agendaEl = document.getElementById('agendaContainer');
+
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = (today.getMonth()+1).toString().padStart(2,'0');
+  const d = today.getDate().toString().padStart(2,'0');
+  const todayStr = `${y}-${m}-${d}`;
+
+  try{
+    const res = await fetch(`https://finnhub.io/api/v1/calendar/economic?from=${todayStr}&to=${todayStr}&token=${key}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const events = (data.economicCalendar || data.events || []).filter(ev => {
+      const country = (ev.country || '').toUpperCase();
+      return country === 'US' || country === 'USD' || country === '';
+    });
+
+    if (events.length === 0){
+      agendaEl.innerHTML = `<div class="empty" style="padding:20px;">No hay eventos de EE.UU. marcados para hoy en el calendario de Finnhub (o tu plan no incluye este dato — seguimos mostrando lo que salga en las noticias).</div>`;
+      return;
+    }
+
+    agendaEl.innerHTML = events.map(ev => `
+      <div class="agenda-row">
+        <span class="agenda-time">${ev.time ? ev.time.split(' ')[1] || ev.time : '—'}</span>
+        <span class="agenda-event">${escapeHtml(ev.event || 'Evento sin nombre')}</span>
+        <span class="agenda-country">${escapeHtml(ev.country || 'US')}</span>
+        <span class="agenda-vals">
+          ${ev.actual != null ? `<span>Actual: <b>${ev.actual}</b></span>` : ''}
+          ${ev.estimate != null ? `<span>Esperado: <b>${ev.estimate}</b></span>` : ''}
+          ${ev.prev != null ? `<span>Anterior: <b>${ev.prev}</b></span>` : ''}
+        </span>
+      </div>
+    `).join('');
+
+  } catch(err){
+    agendaEl.innerHTML = `<div class="empty" style="padding:20px;">Tu plan gratuito de Finnhub no incluye el calendario económico en vivo (endpoint premium). No te preocupes: las noticias de abajo sí te avisarán cuando salga algo importante, incluyendo discursos de miembros de la Fed.</div>`;
+  }
+}
+
+function isRelevant(item){
+  const text = `${item.headline || ''} ${item.summary || ''}`.toLowerCase();
+  return RELEVANT_KEYWORDS.some(k => text.includes(k));
+}
+
+function classifyImpact(text){
+  if (HIGH_IMPACT.some(k => text.includes(k))) return 'alto';
+  if (MED_IMPACT.some(k => text.includes(k))) return 'medio';
+  return 'bajo';
+}
+
+function scoreArticle(text){
+  // devuelve { usdScore, goldScore } cada uno entre -1 (venta/debilidad) y 1 (compra/fortaleza)
+  let usdScore = 0;
+  let goldScore = 0;
+
+  HAWKISH_USD_UP.forEach(k => { if (text.includes(k)) usdScore += 1; });
+  DOVISH_USD_DOWN.forEach(k => { if (text.includes(k)) usdScore -= 1; });
+  SAFE_HAVEN_GOLD_UP.forEach(k => { if (text.includes(k)) goldScore += 1; });
+  RISK_ON_GOLD_DOWN.forEach(k => { if (text.includes(k)) goldScore -= 1; });
+
+  // Relación inversa típica USD-Oro cuando no hay señal directa de refugio
+  if (goldScore === 0 && usdScore !== 0){
+    goldScore = -usdScore * 0.6;
+  }
+
+  usdScore = Math.max(-1, Math.min(1, usdScore));
+  goldScore = Math.max(-1, Math.min(1, goldScore));
+  return { usdScore, goldScore };
+}
+
+function verdictLabel(score, positiveWord, negativeWord){
+  if (score > 0.2) return { word: positiveWord, cls: 'buy' };
+  if (score < -0.2) return { word: negativeWord, cls: 'sell' };
+  return { word: 'NEUTRO', cls: 'neutral' };
+}
+
+function renderFeed(items){
+  els.feedCount.textContent = `${items.length} noticias relevantes`;
+
+  if (items.length === 0){
+    els.feedContainer.innerHTML = `<div class="empty">No se encontraron noticias relevantes para Oro/USD en este momento. Se seguirá monitoreando automáticamente.</div>`;
+    return;
+  }
+
+  els.feedContainer.innerHTML = items.map(item => {
+    const text = `${item.headline || ''} ${item.summary || ''}`.toLowerCase();
+    const impact = classifyImpact(text);
+    const { usdScore, goldScore } = scoreArticle(text);
+    const goldV = verdictLabel(goldScore, 'BUSCA COMPRAS', 'BUSCA VENTAS');
+    const pairV = verdictLabel(-usdScore, 'SUBEN', 'BAJAN');
+    const date = item.datetime ? new Date(item.datetime * 1000).toLocaleString('es-DO') : '—';
+
+    return `
+      <div class="card">
+        <div class="card-meta">
+          <span class="badge impact-${impact}">IMPACTO ${impact.toUpperCase()}</span>
+          <span>${escapeHtml(item.source || 'Fuente desconocida')}</span>
+          <span>${date}</span>
+        </div>
+        <h3><a href="${item.url}" target="_blank" rel="noopener">${escapeHtml(item.headline || 'Sin título')}</a></h3>
+        ${item.summary ? `<p class="summary">${escapeHtml(item.summary.slice(0, 220))}${item.summary.length > 220 ? '…' : ''}</p>` : ''}
+        <div class="reco">
+          <div class="reco-pill ${goldV.cls}">ORO (XAUUSD): <b>${goldV.word}</b></div>
+          <div class="reco-pill ${pairV.cls}">EURUSD/GBPUSD/AUDUSD: <b>${pairV.word}</b></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderGauges(items){
+  if (items.length === 0) return;
+
+  let usdTotal = 0, goldTotal = 0;
+  items.forEach(item => {
+    const text = `${item.headline || ''} ${item.summary || ''}`.toLowerCase();
+    const { usdScore, goldScore } = scoreArticle(text);
+    usdTotal += usdScore;
+    goldTotal += goldScore;
+  });
+  const usdAvg = usdTotal / items.length;
+  const goldAvg = goldTotal / items.length;
+
+  positionNeedle(els.usdNeedle, -usdAvg);
+  positionNeedle(els.goldNeedle, goldAvg);
+
+  setVerdictBadge(els.usdVerdict, -usdAvg, 'SUBEN', 'BAJAN');
+  setVerdictBadge(els.goldVerdict, goldAvg, 'BUSCA COMPRAS', 'BUSCA VENTAS');
+}
+
+function positionNeedle(el, score){
+  // score de -1 a 1 -> posición de 5% a 95%
+  const pct = 50 + (score * 45);
+  el.style.left = `${Math.max(5, Math.min(95, pct))}%`;
+}
+
+function setVerdictBadge(el, score, posWord, negWord){
+  el.classList.remove('buy','sell','neutral');
+  if (score > 0.15){ el.textContent = posWord; el.classList.add('buy'); }
+  else if (score < -0.15){ el.textContent = negWord; el.classList.add('sell'); }
+  else { el.textContent = 'NEUTRO'; el.classList.add('neutral'); }
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+if (HARDCODED_API_KEY) els.startBtn.click();
+</script>
+
+</body>
+</html>
